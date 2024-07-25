@@ -117,3 +117,8 @@ class Post(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify_new(self.title, 4)
+        return super().save(*args, **kwargs)

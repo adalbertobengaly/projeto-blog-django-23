@@ -5,8 +5,8 @@ from django.shortcuts import render, redirect
 from blog.models import Page, Post
 from django.db.models import Q
 from django.contrib.auth.models import User
-from django.http import Http404, HttpRequest, HttpResponse
-from django.views.generic import ListView
+from django.http import Http404
+from django.views.generic import ListView, DetailView
 
 PER_PAGE = 9
 
@@ -138,47 +138,25 @@ class SearchListView(PostListView):
         return super().get(request, *args, **kwargs)
 
 
-def search(request):
-    search_value = request.GET.get('search', '').strip()
-    posts = (
-        Post.objects.get_published()
-        
-    )
+class PageDetailView(DetailView):
+    model = Page
+    template_name = 'blog/pages/page.html'
+    slug_field = 'slug'
+    context_object_name = 'page'
 
-    page_title = f'Search: {search_value[:30]} - '
-
-    return render(
-        request,
-        'blog/pages/index.html',
-        {
-            'page_obj': posts,
-            'search_value': search_value,
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        page = self.get_object()
+        page_title = f'{page.title} - Página - '
+        ctx.update({
             'page_title': page_title,
-        }
-    )
+        })
 
+        return ctx 
+    
+    def get_queryset(self):
+        return super().get_queryset().filter(is_published=True)
 
-def page(request, slug):
-    page_obj = (
-        Page.objects
-            .filter(is_published=True)
-            .filter(slug=slug)
-            .first()
-    )
-
-    if page_obj is None:
-        raise Http404
-
-    page_title = f'{page_obj.title} - Página - '
-
-    return render(
-        request,
-        'blog/pages/page.html',
-        {
-            'page': page_obj,
-            'page_title': page_title,
-        }
-    )
 
 
 def post(request, slug):

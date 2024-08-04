@@ -1,11 +1,11 @@
 # type: ignore
 from typing import Any
 from django.db.models.query import QuerySet
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from blog.models import Page, Post
 from django.db.models import Q
 from django.contrib.auth.models import User
-from django.http import Http404
+from django.http import Http404, HttpRequest, HttpResponse
 from django.views.generic import ListView
 
 PER_PAGE = 9
@@ -107,16 +107,42 @@ class TagListView(PostListView):
         return ctx
     
 
+class SearchListView(PostListView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._search_value = ''
+
+    def setup(self, request, *args, **kwargs):
+        self._search_value = request.GET.get('search', '').strip()
+        return super().setup(request, *args, **kwargs)
+    
+    def get_queryset(self) -> QuerySet[Any]:
+        return super().get_queryset().filter(
+            Q(title__icontains=self._search_value) |
+            Q(excerpt__icontains=self._search_value) |
+            Q(content__icontains=self._search_value)
+        )[:PER_PAGE]
+    
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        page_title = f'Search: {self._search_value[:30]} - '
+        ctx.update({
+            'search_value': self._search_value,
+            'page_title': page_title,
+        })
+        return ctx
+    
+    def get(self, request, *args, **kwargs):
+        if self._search_value == '':
+            return redirect('blog:index')
+        return super().get(request, *args, **kwargs)
+
 
 def search(request):
     search_value = request.GET.get('search', '').strip()
     posts = (
         Post.objects.get_published()
-        .filter(
-            Q(title__icontains=search_value) |
-            Q(excerpt__icontains=search_value) |
-            Q(content__icontains=search_value)
-        )[:PER_PAGE]
+        
     )
 
     page_title = f'Search: {search_value[:30]} - '
